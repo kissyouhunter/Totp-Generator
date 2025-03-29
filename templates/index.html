@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/x-icon" href="/static/favicon.ico">
+    <title>TOTP生成器</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Exo:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            padding: 20px;
+            background: url('/static/background.jpg') no-repeat center center fixed;
+            background-size: cover;
+            font-family: 'Exo', sans-serif;
+            color: #fff;
+            overflow: hidden;
+        }
+        .container {
+            max-width: 900px;
+            position: relative;
+            z-index: 1;
+        }
+        h1 {
+            color: #00ffff;
+            text-shadow: 0 0 10px #00ffff;
+            text-align: center;
+            margin-bottom: 20px;
+            font-weight: 700;
+        }
+        textarea {
+            resize: none;
+            border-radius: 15px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid #00ffff;
+            color: #fff;
+            padding: 15px;
+            box-shadow: 0 0 10px #00ffff;
+            margin-bottom: 10px;
+        }
+        textarea::placeholder {
+            color: rgba(255, 255, 255, 0.7);
+        }
+        #results {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            max-height: 500px;
+            overflow-y: auto;
+            padding-right: 10px;
+        }
+        .key-group {
+            padding: 5px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid #00ffff;
+            border-radius: 10px;
+            box-shadow: 0 0 10px #00ffff;
+            transition: transform 0.3s, box-shadow 0.3s;
+            display: flex;
+            flex-direction: column;
+            height: 120px;
+            position: relative;
+        }
+        .key-group:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 0 15px #00ffff;
+        }
+        .key-text {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .code {
+            font-size: 1.2em;
+            font-weight: 700;
+            color: #ffffff;
+            background: rgba(0, 255, 255, 0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            text-shadow: 0 0 4px #00ffff;
+            letter-spacing: 1px;
+            text-align: center;
+        }
+        .progress-container {
+            width: 100%;
+            height: 5px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+            overflow: hidden;
+            margin: 5px 0;
+        }
+        .progress-bar {
+            height: 100%;
+            background: #00ffff;
+        }
+        .button-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        .copy-btn, #copy-all-btn {
+            background: transparent;
+            border: 1px solid #00ffff;
+            color: #00ffff;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin: 0 5px;
+        }
+        .copy-btn:hover, #copy-all-btn:hover {
+            transform: scale(1.1);
+            box-shadow: 0 0 10px #00ffff;
+        }
+        .copy-hint {
+            position: absolute;
+            top: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            color: #00ff00;
+            font-size: 0.9em;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 2px 6px;
+            border-radius: 4px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .copy-hint.show {
+            opacity: 1;
+        }
+        .error-hint {
+            font-size: 0.9em;
+            color: #ff4444;
+            text-align: center;
+            margin-top: 5px;
+        }
+        .lang-select {
+            margin-bottom: 10px;
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid #00ffff;
+            color: #fff;
+            padding: 5px;
+            border-radius: 5px;
+        }
+        .github-link {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+        .github-link a {
+            color: #00ffff;
+            text-decoration: none;
+            border: 1px solid #00ffff;
+            padding: 5px 15px;
+            border-radius: 5px;
+            background: rgba(0, 0, 0, 0.5);
+            transition: all 0.3s ease;
+            text-shadow: 0 0 5px #00ffff;
+            box-shadow: 0 0 10px rgba(0, 255, 255, 0.3);
+        }
+        .github-link a:hover {
+            background: rgba(0, 255, 255, 0.1);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+            transform: translateY(-2px);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 id="title">TOTP Generator</h1>
+        <div class="github-link">
+            <a href="https://github.com/kissyouhunter/Totp-Generator" target="_blank" rel="noopener noreferrer">Source on Github</a>
+        </div>
+        <select class="lang-select" id="language-select" onchange="changeLanguage(this.value)">
+            <option value="en">English</option>
+            <option value="zh">中文</option>
+            <option value="fr">Français</option>
+            <option value="de">Deutsch</option>
+            <option value="es">Español</option>
+            <option value="ja">日本語</option>
+            <option value="ko">한국어</option>
+        </select>
+        <textarea class="form-control" rows="5" id="key-input" oninput="generateCodes(this)"></textarea>
+        <button id="copy-all-btn" style="display: none;"></button>
+        <div id="results" class="mt-4"></div>
+    </div>
+
+    <script>
+        const translations = {
+            en: {
+                title: 'TOTP Generator',
+                placeholder: 'Paste multiple keys (one per line)',
+                key: 'Key',
+                copy: 'Copy',
+                copyAll: 'Copy All',
+                copied: 'Copied',
+                copyAllCopied: 'All Copied',
+                invalidKey: 'Invalid Key'
+            },
+            zh: {
+                title: 'TOTP生成器',
+                placeholder: '粘贴多行密钥（每行一个）',
+                key: '密钥',
+                copy: '复制',
+                copyAll: '全部复制',
+                copied: '已复制',
+                copyAllCopied: '全部已复制',
+                invalidKey: '无效密钥'
+            },
+            fr: {
+                title: 'Générateur TOTP',
+                placeholder: 'Collez plusieurs clés (une par ligne)',
+                key: 'Clé',
+                copy: 'Copier',
+                copyAll: 'Tout copier',
+                copied: 'Copié',
+                copyAllCopied: 'Tout copié',
+                invalidKey: 'Clé invalide'
+            },
+            de: {
+                title: 'TOTP-Generator',
+                placeholder: 'Fügen Sie mehrere Schlüssel ein (einer pro Zeile)',
+                key: 'Schlüssel',
+                copy: 'Kopieren',
+                copyAll: 'Alle kopieren',
+                copied: 'Kopiert',
+                copyAllCopied: 'Alle kopiert',
+                invalidKey: 'Ungültiger Schlüssel'
+            },
+            es: {
+                title: 'Generador TOTP',
+                placeholder: 'Pegue varias claves (una por línea)',
+                key: 'Clave',
+                copy: 'Copiar',
+                copyAll: 'Copiar todo',
+                copied: 'Copiado',
+                copyAllCopied: 'Todo copiado',
+                invalidKey: 'Clave inválida'
+            },
+            ja: {
+                title: 'TOTPジェネレーター',
+                placeholder: '複数のキーを貼り付け（1行に1つ）',
+                key: 'キー',
+                copy: 'コピー',
+                copyAll: 'すべてコピー',
+                copied: 'コピー済み',
+                copyAllCopied: 'すべてコピー済み',
+                invalidKey: '無効なキー'
+            },
+            ko: {
+                title: 'TOTP 생성기',
+                placeholder: '여러 키를 붙여넣기 (한 줄에 하나씩)',
+                key: '키',
+                copy: '복사',
+                copyAll: '모두 복사',
+                copied: '복사됨',
+                copyAllCopied: '모두 복사됨',
+                invalidKey: '유효하지 않은 키'
+            }
+        };
+
+        let currentLang = localStorage.getItem('language') || 'en'; // 默认英文
+        document.getElementById('language-select').value = currentLang;
+
+        function changeLanguage(lang) {
+            currentLang = lang;
+            localStorage.setItem('language', lang);
+            updateText();
+            updateExistingResults(); // 更新现有结果的语言
+        }
+
+        function updateText() {
+            const t = translations[currentLang];
+            document.getElementById('title').textContent = t.title;
+            document.getElementById('key-input').placeholder = t.placeholder;
+            document.getElementById('copy-all-btn').textContent = t.copyAll;
+            document.querySelectorAll('.copy-btn').forEach(btn => btn.textContent = t.copy);
+            document.querySelectorAll('.copy-hint').forEach(hint => {
+                if (!hint.classList.contains('show')) hint.textContent = t.copied;
+            });
+            document.querySelectorAll('.error-hint').forEach(hint => hint.textContent = t.invalidKey);
+        }
+
+        function updateExistingResults() {
+            const t = translations[currentLang];
+            for (let [cleanedKey, groupDiv] of processedKeys) {
+                const index = Array.from(processedKeys.keys()).indexOf(cleanedKey);
+                const keyText = groupDiv.querySelector('.key-text');
+                const originalKey = keyText.textContent.split(': ')[1]; // 提取原始密钥
+                keyText.innerHTML = `<strong>${t.key} ${index + 1}:</strong> ${originalKey}`;
+                const copyBtn = groupDiv.querySelector('.copy-btn');
+                if (copyBtn) copyBtn.textContent = t.copy;
+                const copyHint = groupDiv.querySelector('.copy-hint');
+                if (copyHint && !copyHint.classList.contains('show')) copyHint.textContent = t.copied;
+                const errorHint = groupDiv.querySelector('.error-hint');
+                if (errorHint) errorHint.textContent = t.invalidKey;
+            }
+        }
+
+        let processedKeys = new Map();
+
+        function generateCodes(textarea) {
+            const keys = textarea.value.split('\n').filter(key => key.trim() !== '');
+            const resultsDiv = document.getElementById('results');
+            const copyAllBtn = document.getElementById('copy-all-btn');
+            const currentKeys = new Set(keys.map(key => key.replace(/\s/g, '')));
+            const t = translations[currentLang];
+
+            copyAllBtn.style.display = keys.length > 1 ? 'block' : 'none';
+            if (keys.length > 1) {
+                copyAllBtn.onclick = () => copyAllCodes();
+            }
+
+            for (let [key, groupDiv] of processedKeys) {
+                if (!currentKeys.has(key)) {
+                    resultsDiv.removeChild(groupDiv);
+                    processedKeys.delete(key);
+                }
+            }
+
+            keys.forEach((key, index) => {
+                const cleanedKey = key.replace(/\s/g, '');
+                if (processedKeys.has(cleanedKey)) return;
+
+                fetch('/generate', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ key: cleanedKey })
+                })
+                .then(response => {
+                    if (!response.ok) throw new Error('Invalid key');
+                    return response.json();
+                })
+                .then(data => {
+                    const groupDiv = document.createElement('div');
+                    groupDiv.className = 'key-group';
+                    groupDiv.innerHTML = `
+                        <div class="key-text"><strong>${t.key} ${index + 1}:</strong> ${key}</div>
+                        <span class="code">${data.code}</span>
+                        <div class="progress-container">
+                            <div class="progress-bar" id="progress-${cleanedKey}"></div>
+                        </div>
+                        <div class="button-container">
+                            <span class="copy-hint">${t.copied}</span>
+                            <button class="copy-btn" data-code="${data.code}">${t.copy}</button>
+                        </div>
+                    `;
+                    const copyButton = groupDiv.querySelector('.copy-btn');
+                    copyButton.addEventListener('click', () => {
+                        const code = copyButton.getAttribute('data-code');
+                        copyToClipboard(code, copyButton);
+                    });
+                    resultsDiv.appendChild(groupDiv);
+                    processedKeys.set(cleanedKey, groupDiv);
+                    updateProgressBar(cleanedKey);
+                })
+                .catch(error => {
+                    const groupDiv = document.createElement('div');
+                    groupDiv.className = 'key-group';
+                    groupDiv.innerHTML = `
+                        <div class="key-text"><strong>${t.key} ${index + 1}:</strong> ${key}</div>
+                        <span class="error-hint">${t.invalidKey}</span>
+                    `;
+                    resultsDiv.appendChild(groupDiv);
+                    processedKeys.set(cleanedKey, groupDiv);
+                });
+            });
+        }
+
+        function updateProgressBar(key) {
+            const groupDiv = processedKeys.get(key);
+            const progressBar = groupDiv.querySelector(`#progress-${key}`);
+            if (!progressBar) return;
+            const currentTime = Math.floor(Date.now() / 1000);
+            const timeStep = 30;
+            const remainingTime = timeStep - (currentTime % timeStep);
+            const progressPercentage = (remainingTime / timeStep) * 100;
+
+            progressBar.style.width = `${progressPercentage}%`;
+
+            setTimeout(() => {
+                updateCode(key);
+            }, remainingTime * 1000);
+        }
+
+        function updateCode(key) {
+            const groupDiv = processedKeys.get(key);
+            const codeElement = groupDiv.querySelector('.code');
+            if (!codeElement) return;
+            fetch('/generate', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: key })
+            })
+            .then(response => {
+                if (!response.ok) throw new Error('Invalid key');
+                return response.json();
+            })
+            .then(data => {
+                const button = groupDiv.querySelector('.copy-btn');
+                codeElement.textContent = data.code;
+                button.setAttribute('data-code', data.code);
+                updateProgressBar(key);
+            });
+        }
+
+        function copyToClipboard(text, button) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(() => {
+                    showCopyHint(button);
+                }).catch(err => {
+                    console.error('Clipboard API failed:', err);
+                    fallbackCopy(text, button);
+                });
+            } else {
+                fallbackCopy(text, button);
+            }
+        }
+
+        function fallbackCopy(text, button) {
+            const tempInput = document.createElement('textarea');
+            tempInput.value = text;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            try {
+                document.execCommand('copy');
+                showCopyHint(button);
+            } catch (err) {
+                console.error('Fallback copy failed:', err);
+            }
+            document.body.removeChild(tempInput);
+        }
+
+        function showCopyHint(button) {
+            const hint = button.previousElementSibling;
+            hint.classList.add('show');
+            setTimeout(() => {
+                hint.classList.remove('show');
+            }, 2000);
+        }
+
+        function copyAllCodes() {
+            const codes = Array.from(processedKeys.values())
+                .filter(groupDiv => groupDiv.querySelector('.code'))
+                .map(groupDiv => groupDiv.querySelector('.code').textContent)
+                .join('\n');
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(codes).then(() => {
+                    showAllCopyHint();
+                }).catch(err => {
+                    console.error('Clipboard API failed:', err);
+                    fallbackCopyAll(codes);
+                });
+            } else {
+                fallbackCopyAll(codes);
+            }
+        }
+
+        function fallbackCopyAll(codes) {
+            const tempInput = document.createElement('textarea');
+            tempInput.value = codes;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            try {
+                document.execCommand('copy');
+                showAllCopyHint();
+            } catch (err) {
+                console.error('Fallback copy failed:', err);
+            }
+            document.body.removeChild(tempInput);
+        }
+
+        function showAllCopyHint() {
+            const t = translations[currentLang];
+            const hint = document.createElement('span');
+            hint.textContent = t.copyAllCopied;
+            hint.style.position = 'absolute';
+            hint.style.left = '50%';
+            hint.style.transform = 'translateX(-50%)';
+            hint.style.color = '#00ff00';
+            hint.style.background = 'rgba(0, 0, 0, 0.7)';
+            hint.style.padding = '2px 6px';
+            hint.style.borderRadius = '4px';
+            document.getElementById('copy-all-btn').insertAdjacentElement('afterend', hint);
+            setTimeout(() => hint.remove(), 2000);
+        }
+
+        setInterval(() => {
+            for (let key of processedKeys.keys()) {
+                updateProgressBar(key);
+            }
+        }, 1000);
+
+        // 初始化语言
+        updateText();
+    </script>
+</body>
+</html>

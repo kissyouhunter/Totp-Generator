@@ -1,0 +1,5 @@
+TOTP Generator - A modern, secure, and user-friendly web-based TOTP (Time-based One-Time Password) generator.
+
+This application allows users to generate TOTP codes for multiple keys simultaneously, featuring a beautiful UI with real-time code generation and countdown timers. Built with Flask and modern web technologies, it supports multiple languages and provides a secure client-side operation environment.
+
+Try it online: https://totp.ks0.cc
