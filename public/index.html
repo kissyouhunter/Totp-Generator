@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TOTP Generator</title>
+  <link rel="stylesheet" href="css/bulma-0.9.4.min.css">
+  <style>
+    [v-cloak] {
+      display: none;
+    }
+
+    html, body {
+      height: 100%;
+    }
+
+    body > footer {
+      position: sticky;
+      top: 100vh;
+    }
+
+    .footer {
+      padding: 2rem;
+    }
+
+    @media screen and (min-width: 1068px) {
+      .container {
+        max-width: 600px;
+        width: 600px;
+      }
+    }
+
+    .columns {
+      display: flex;
+      flex-wrap: wrap;
+    }
+
+    .box {
+      padding: 1rem;
+      margin: 0.5rem;
+      flex: 1 1 calc(50% - 1rem);
+      box-sizing: border-box;
+    }
+
+    .token {
+      font-size: 1.5rem;
+      font-weight: bold;
+    }
+
+    .secret {
+      font-size: 0.875rem;
+      color: #4a4a4a;
+      word-break: break-all;
+    }
+
+    .is-clearfix {
+      margin-top: 0.5rem;
+    }
+
+    .button {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .button img {
+      height: 24px;
+      width: 24px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 使用 CDN 加载 otpauth.js -->
+  <script defer src="js/assets/otpauth-9.1.3.min.js"></script>
+  <script defer src="js/assets/clipboard-2.0.6.min.js"></script>
+
+  <section id="app" class="section">
+
+    <div class="container">
+
+      <h1 class="title">TOTP 二步验证码获取工具</h1>
+
+      <div class="field">
+        <label class="label is-uppercase">密钥</label>
+
+        <div class="control">
+          <textarea class="textarea" id="secret_keys" placeholder="一行一个密钥"></textarea>
+        </div>
+      </div>
+
+      <div class="content">
+        <span class="has-text-grey is-size-7" id="updatingInText">Updating in 30 seconds</span>
+        <progress class="progress is-info is-small" id="progress" value="30" max="30"></progress>
+      </div>
+
+      <div id="tokensContainer" class="columns"></div>
+
+    </div>
+
+  </section>
+
+  <footer class="footer">
+    <div class="container">
+      <div class="content has-text-centered">
+        问题反馈
+        <a href="https://t.me/kissyouhunter" target="_blank" style="color: blue; text-decoration: underline;">
+        kissyouhunter</a>
+      </div>
+    </div>
+  </footer>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const secretKeysTextarea = document.getElementById('secret_keys');
+  const updatingInText = document.getElementById('updatingInText');
+  const progress = document.getElementById('progress');
+  const tokensContainer = document.getElementById('tokensContainer');
+
+  const digits = 6;
+  const period = 30;
+  let updatingIn = 30;
+  let timer;
+
+  // Get the local timezone offset in seconds (Note: `getTimezoneOffset()` returns in minutes)
+  const LOCAL_TIMEZONE_OFFSET = -new Date().getTimezoneOffset() * 60;
+
+  const updateTokens = () => {
+    const secretKeys = secretKeysTextarea.value.split('\n').filter(key => key.trim() !== '');
+    tokensContainer.innerHTML = '';
+    secretKeys.forEach((secret, index) => {
+      try {
+        console.log(`Processing secret: ${secret.trim()}`);
+        const totp = new OTPAuth.TOTP({
+          secret: OTPAuth.Secret.fromBase32(secret.trim()),
+          digits: digits,
+          period: period,
+          // Adjust for local time
+          epoch: Date.now() / 1000 + LOCAL_TIMEZONE_OFFSET
+        });
+        const token = totp.generate();
+        console.log(`Generated token: ${token}`);
+        const tokenElement = document.createElement('div');
+        tokenElement.className = 'box';
+        tokenElement.innerHTML = `
+          <p class="token has-text-centered" id="token-${index}">${token}</p>
+          <p class="secret has-text-centered">${secret.trim()}</p>
+          <div class="control is-clearfix">
+            <a class="button is-light" id="clipboard-button-${index}" data-clipboard-target="#token-${index}" title="Copy token to clipboard">
+              <img src="img/clippy.svg" alt="Copy">
+            </a>
+          </div>
+        `;
+        tokensContainer.appendChild(tokenElement);
+      } catch (error) {
+        console.error(`Error generating token for ${secret.trim()}:`, error);
+        const errorElement = document.createElement('div');
+        errorElement.className = 'box';
+        errorElement.innerHTML = `<p class="token has-text-centered">Invalid Key</p>
+                                  <p class="secret has-text-centered">${secret.trim()}</p>`;
+        tokensContainer.appendChild(errorElement);
+      }
+    });
+
+    new ClipboardJS('.button');
+  };
+
+  const startTimer = () => {
+    clearInterval(timer);
+    updatingIn = period;
+    timer = setInterval(() => {
+      updatingIn--;
+      if (updatingIn <= 0) {
+        updatingIn = period;
+        updateTokens();
+      }
+      updatingInText.textContent = `Updating in ${updatingIn} seconds`;
+      progress.value = updatingIn;
+    }, 1000);
+  };
+
+  secretKeysTextarea.addEventListener('input', updateTokens);
+
+  startTimer();
+  updateTokens();
+});
+
+</script>
+
+</body>
+</html>
